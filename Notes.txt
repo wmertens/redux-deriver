@@ -1,0 +1,67 @@
+Wrapper fn gets getState and object
+Object keys are selector fns f(self)
+Self has getters to access selfn vals
+Getter stores dependencies and cache returns, loops are allowed until x deep, prevent endless loop
+State is also getter
+
+No: object is plain, any functions are converted to lazy getters with memoization that record dependencies. To recurse, simply return fn. Then gets state and
+
+-------------------------
+No: new Derived object created for every new state, all methods are converted to memoized. Methods have to only rely on this.
+Use getters. Derivers need to read this.state and call this.roofs() etc.
+Maybe: allow attributes and memoize by attribute, but for now only one memo per state. If a method has parameters, it is not memoized? Parameters are ultimately derived from state so can be derivers too.
+
+How to separate concerns? Perhaps like reducers, a tree of selectors? d.roofs.current, d.session.user?
+@select((der, props) => {roof: der.roof, bar: der.bars(props.id)})
+- listens to changes of roof: run it once and mark as listener for that selector. On state change, recalc for all listeners and compare to last state
+- runs on every props or state change due to bars call, should instead use deriver. Not allowed.
+- => @select((s) => {roof: s.roofs.current, roofs: s.roofs.all})
+
+Wrap redux, listen and debounce, add selector attr, provide @select
+=> clone reselect too
+Deriver or selector? @connect or @select or @inject?
+-------------------------
+
+
+To inject vals, specify obj with wanted sel fns (not getters). These add callbacks on change.
+
+=> everything only called once, only if needed :)
+
+var currentDeriverDef = {
+  roof: d => d.state.roofs[d.state.app.roofId],
+  cases: d => d.state.blogs.filter(b => b.type==="case")
+}
+var currentDeriver = { state: {}};
+function getDeriver() {
+  var d = {
+    mem: {},
+    state: getState()
+  };
+  for (key in currentDeriverDef) {
+    Object.defineProperty(d, key, {
+      get: function() {
+        return typeof d.mem[key] !== 'undefined' ? d.mem[key]:
+      }
+    })
+  }
+
+New new new thinking:
+--------
+Create one or more objects with getters and hidden setState() function that listens to the store. Internal change tracking?
+Cache by using an array of booleans for has state or perhaps array of generation counters, and array of results. Each getter has its own index.
+
+You can add getters after the creation.
+
+
+==========================================
+Examples:
+Definition:
+  roofs:
+    all: () -> @state.roofs
+    selected: (@) -> @roofs.all[@state.app.roofId]
+  blogs:
+    cases: -> @state.blogs.filter (f)->f.type is "case"
+
+store.getDerived = createDeriver <definition>
+
+@select((d) -> roofs: d.roofs) => @props.roofs is defined
