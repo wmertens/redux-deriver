@@ -1,9 +1,11 @@
-var currentDeriverDef = {
-  roof: function(d) { return d.roofs[d.roofId] },
-  roofId: function(d) { return d.state.app.roofId },
-  roofs: function(d) { return d.state.roofs },
-  cases: function(d) { return d.state.blogs.filter(b => b.type==="case") }
-}
+const spy = console.log;
+let currentDeriverDef = {
+  roof: (d) => d.roofs[d.roofId],
+  roofId: (d) => d.state.app.roofId,
+  roofs: (d) => d.state.roofs,
+  cases: (d) => d.state.blogs.filter(b => b.type === 'case')
+};
+
 // TODO when keeping track of dependencies
 // generation counter
 // has[] should have last checked generation
@@ -13,9 +15,9 @@ var currentDeriverDef = {
 // TODO allow configuring spy for testing
 // TODO allow plain values instead of functions
 function makeDeriver(def) {
-  var d = {};
+  let d = {};
 
-  Object.defineProperty(d, "__s", {
+  Object.defineProperty(d, '__s', {
     value: {
       mem: [],
       has: [],
@@ -26,82 +28,93 @@ function makeDeriver(def) {
     },
     configurable: false
   });
-  var s = d.__s;
+  let s = d.__s;
 
-  Object.defineProperty(d, "state", {
-    get: function() {
+  Object.defineProperty(d, 'state', {
+    get: () => {
       // Mark dep
+      if (s.dep) s.dep[0] = true;
 
-      return s.state
-    },
-    set: function(ns) {
-      // Check if state changed
-
-      s.gen++;
-      return (s.state = ns)
+      return s.state;
     },
     configurable: false
   });
 
-  for (key in def) {
-    Object.defineProperty(d, key, {
-      get: (function(i, key) {
-        return function() {
-          // Mark dep
+  Object.defineProperty(d, 'setState', {
+    value: (ns) => {
+      // Check if state changed
 
-          if (s.has[i] === s.gen) return s.mem[i];
+      s.gen++;
+      s.state = ns;
+      return ns;
+    },
+    configurable: false
+  });
 
-          // Check if own deps changed, else return same
+  function makeGetter(i, key) {
+    return () => {
+      // Mark dep
+      if (s.dep) s.dep[i] = true;
 
-          // Call spy
-          console.log("calc", i, key, s.depth);
+      if (s.has[i] === s.gen) return s.mem[i];
 
-          // Recalc
-          if (s.depth > 100) {
-            console.log("Infinite loop? Aborting");
-            return;
-          }
-          ++s.depth;
-          s.mem[i] = def[key](d);
-          --s.depth;
+      // Check if own deps changed, else return same
 
-          s.has[i] = s.gen;
-          return s.mem[i];
-        }
-      })(s.idx++, key),
-      enumerable: true,
-    })
+      // Call spy
+      spy('calc', i, key, s.depth);
+
+      // Recalc
+      if (s.depth > 100) {
+        spy('Infinite loop? Aborting');
+        return undefined;
+      }
+      ++s.depth;
+      s.mem[i] = def[key](d);
+      --s.depth;
+
+      s.has[i] = s.gen;
+      return s.mem[i];
+    };
+  }
+
+  for (let key in def) {
+    if (def.hasOwnProperty(key)) {
+      Object.defineProperty(d, key, {
+        get: makeGetter(++s.idx, key),
+        enumerable: true
+      });
+    }
   }
   return d;
 }
 
-var d = makeDeriver(currentDeriverDef);
-d.state = {
+let d = makeDeriver(currentDeriverDef);
+d.setState({
   roofs: {
-    sedum: "whee"
+    sedum: 'whee'
   },
-  app: { roofId: "sedum"},
+  app: { roofId: 'sedum'},
   blogs: [
     {
-      type: "case",
-      title: "prasrt"
+      type: 'case',
+      title: 'prasrt'
     }
   ]
-}
-console.log(JSON.stringify(d));
-console.log(JSON.stringify(d.__s));
+});
+spy(JSON.stringify(d));
+spy(JSON.stringify(d.__s));
 
-d.state = {
+d.setState({
   roofs: {
-    sedum: "whaa"
+    sedum: 'whaa'
   },
-  app: { roofId: "sedum"},
+  app: { roofId: 'sedum'},
   blogs: [
     {
-      type: "case",
-      title: "prasrt"
+      type: 'case',
+      title: 'prasrt'
     }
   ]
-}
-console.log(JSON.stringify(d));
-console.log(JSON.stringify(d.__s));
+});
+spy(JSON.stringify(d));
+spy(JSON.stringify(d.__s));
