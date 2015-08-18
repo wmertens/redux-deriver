@@ -17,18 +17,14 @@ let currentDeriverDef = {
 function makeDeriver(def) {
   let d = {};
 
-  Object.defineProperty(d, '__s', {
-    value: {
-      mem: [],
-      has: [],
-      deps: [],
-      gen: 0,
-      depth: 0,
-      idx: 0
-    },
-    configurable: false
-  });
-  let s = d.__s;
+  let s = {
+    mem: [],
+    has: [],
+    deps: [],
+    gen: 0,
+    depth: 0,
+    idx: 0
+  };
 
   Object.defineProperty(d, 'state', {
     get: () => {
