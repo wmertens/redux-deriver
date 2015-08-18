@@ -1,37 +1,45 @@
-const spy = console.log;
-let currentDeriverDef = {
-  roof: (d) => d.roofs[d.roofId],
-  roofId: (d) => d.state.app.roofId,
-  roofs: (d) => d.state.roofs,
-  cases: (d) => d.state.blogs.filter(b => b.type === 'case')
-};
-
 // TODO when keeping track of dependencies
 // generation counter
 // has[] should have last checked generation
 // dependencies should store used value as well as reference
 
 // TODO tests first ;)
-// TODO allow configuring spy for testing
 // TODO allow plain values instead of functions
-function makeDeriver(def) {
+// TODO provide previous value for updating returned derivers?
+// TODO provide d on this for coffeescript?
+
+const debug = console.log;
+
+function makeDeriver(def, inspector) {
   let d = {};
+  let getters = [];
+  let onCalc = inspector && inspector.onCalc;
+  let mem = []; // last result
+  let has = []; // last generation value was calculated
+  let deps = []; // dependencies for each value
 
   let s = {
-    mem: [],
-    has: [],
-    deps: [],
     gen: 0,
     depth: 0,
     idx: 0
   };
+  if (inspector) {
+    s.mem = mem;
+    s.has = has;
+    s.deps = deps;
+    inspector.internalState = s;
+  }
 
   Object.defineProperty(d, 'state', {
-    get: () => {
-      // Mark dep
-      if (s.dep) s.dep[0] = true;
+    get: getters[0] = () => {
+      let val = mem[0];
 
-      return s.state;
+      // Mark dep
+      if (s.dep) {
+        s.dep[0] = val;
+      }
+
+      return val;
     },
     configurable: false
   });
@@ -41,35 +49,57 @@ function makeDeriver(def) {
       // Check if state changed
 
       s.gen++;
-      s.state = ns;
+      mem[0] = ns;
       return ns;
     },
     configurable: false
   });
 
   function makeGetter(i, key) {
-    return () => {
-      // Mark dep
-      if (s.dep) s.dep[i] = true;
+    return getters[i] = () => {
+      let prevDep = s.dep;
 
-      if (s.has[i] === s.gen) return s.mem[i];
+      if (s.has[i] !== s.gen) {
 
-      // Check if own deps changed, else return same
+        // Check if own deps changed, else return same
+        let myDeps = deps[i];
+        let dontRecalc;
+        if (myDeps) {
+          // Don't influence current dep
+          s.dep = null;
+          dontRecalc = true;
+          // Walk the sparse array of my dependencies
+          for (let j in myDeps) {
+            if (myDeps[j] !== getters[j]()) {
+              dontRecalc = false;
+              break;
+            }
+          }
+        }
+        if (!dontRecalc) {
+          // Call onCalc
+          if (onCalc) onCalc(key, i, s.depth);
 
-      // Call spy
-      spy('calc', i, key, s.depth);
+          // Recalc
+          if (s.depth > 100) {
+            throw new Error('Infinite loop? Aborting');
+          }
+          s.dep = [];
+          ++s.depth;
+          mem[i] = def[key](d);
+          --s.depth;
+          deps[i] = s.dep;
 
-      // Recalc
-      if (s.depth > 100) {
-        spy('Infinite loop? Aborting');
-        return undefined;
+          has[i] = s.gen;
+        }
+        s.dep = prevDep;
       }
-      ++s.depth;
-      s.mem[i] = def[key](d);
-      --s.depth;
 
-      s.has[i] = s.gen;
-      return s.mem[i];
+      let val = mem[i];
+      if (prevDep) {
+        prevDep[i] = val;
+      }
+      return val;
     };
   }
 
@@ -84,25 +114,25 @@ function makeDeriver(def) {
   return d;
 }
 
-let d = makeDeriver(currentDeriverDef);
-d.setState({
-  roofs: {
-    sedum: 'whee'
-  },
-  app: { roofId: 'sedum'},
-  blogs: [
-    {
-      type: 'case',
-      title: 'prasrt'
-    }
-  ]
-});
-spy(JSON.stringify(d));
-spy(JSON.stringify(d.__s));
+let currentDeriverDef = {
+  roof: (d) => d.roofs[d.roofId],
+  roofId: (d) => d.state.app.roofId,
+  roofs: (d) => d.state.roofs,
+  blogs: (d) => d.state.blogs,
+  cases: (d) => d.blogs.filter(b => b.type === 'case')
+};
 
-d.setState({
+let spy = {
+  onCalc: (key, i, depth) => {
+    debug('Calculating', key, i, depth);
+  }
+};
+let d = makeDeriver(currentDeriverDef, spy);
+
+let state = {
   roofs: {
-    sedum: 'whaa'
+    sedum: 'whee',
+    foom: 'whee'
   },
   app: { roofId: 'sedum'},
   blogs: [
@@ -111,6 +141,15 @@ d.setState({
       title: 'prasrt'
     }
   ]
-});
-spy(JSON.stringify(d));
-spy(JSON.stringify(d.__s));
+};
+d.setState(state);
+debug(JSON.stringify(d));
+debug(JSON.stringify(spy.internalState));
+
+state = {...state, app: {
+  roofId: 'foom'
+}};
+
+d.setState(state);
+debug(JSON.stringify(d));
+debug(JSON.stringify(spy.internalState));
