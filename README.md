@@ -48,6 +48,12 @@ Counter-indications:
   * In that case you probably need to be careful about using Redux too
   * Perhaps creating and clearing per-component derivers would work
 
+## Why use getters?
+
+* Works with shallowEqual, makes derivation look like plain object
+* Reminder that everything derives from state
+* Less typing
+
 ## Roadmap
 
 - Some sort of composition like reducers?

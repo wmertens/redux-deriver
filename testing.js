@@ -1,11 +1,9 @@
-// TODO when keeping track of dependencies
-// generation counter
-// has[] should have last checked generation
-// dependencies should store used value as well as reference
-
 // TODO tests first ;)
+// TODO example use case with shared derivers
 // TODO allow plain values instead of functions
+// TODO use shallowEqual for dep checking?
 // TODO provide previous value for updating returned derivers?
+//   ...or if the return value is {deriverDef, subState} do it automatically?
 // TODO provide d on this for coffeescript?
 
 const debug = console.log;
@@ -46,7 +44,10 @@ function makeDeriver(def, inspector) {
 
   Object.defineProperty(d, 'setState', {
     value: (ns) => {
-      // Check if state changed
+      // TODO Check shallowly if state changed? Probably not worth it
+      if (ns === mem[0]) {
+        return ns;
+      }
 
       s.gen++;
       mem[0] = ns;
@@ -137,6 +138,10 @@ let state = {
   app: { roofId: 'sedum'},
   blogs: [
     {
+      type: 'nice',
+      title: 'prasrt'
+    },
+    {
       type: 'case',
       title: 'prasrt'
     }
@@ -144,7 +149,7 @@ let state = {
 };
 d.setState(state);
 debug(JSON.stringify(d));
-debug(JSON.stringify(spy.internalState));
+debug(JSON.stringify(spy.internalState, null, 2));
 
 state = {...state, app: {
   roofId: 'foom'
@@ -152,4 +157,4 @@ state = {...state, app: {
 
 d.setState(state);
 debug(JSON.stringify(d));
-debug(JSON.stringify(spy.internalState));
+debug(JSON.stringify(spy.internalState, null, 2));
