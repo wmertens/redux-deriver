@@ -1,3 +1,8 @@
+***NOTE***
+---
+This is a work in progress, currently the only thing working is testing.js which prototypes the lazy deriver.
+
+
 Redux Deriver
 =========================
 
